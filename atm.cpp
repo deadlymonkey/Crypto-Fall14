@@ -9,7 +9,9 @@
 #include <netdb.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
+#include <string.h>	
+#include <iostream>
+#include "Otherfuncs.h"
 
 int main(int argc, char* argv[])
 {
@@ -42,50 +44,114 @@ int main(int argc, char* argv[])
 	}
 	
 	//input loop
-	char buf[80];
+	char buf[80] = "";
+	std::string buf_string = "";
+	buf_string.resize(80);
+	std::string packet = "";
+	packet.resize(1024);
+	std::vector<std::string> user_args;
 	while(1)
 	{
+		std::cout << "ready for next command." << std::endl;
+		buf[0] = '\0';
+		buf_string = "";
+		packet = "";
+		user_args.clear();
 		printf("atm> ");
 		fgets(buf, 79, stdin);
 		buf[strlen(buf)-1] = '\0';	//trim off trailing newline
-		
+		buf_string = std::string(buf);
+		user_args = split(buf_string, ' ', user_args);
 		//TODO: your input parsing code has to put data here
-		char packet[1024];
+		//char packet[1024];
 		int length = 1;
 		
 		//input parsing
-		if(!strcmp(buf, "logout"))
+		
+		if(buf_string == "logout")
+		{
 			break;
-		//TODO: other commands
+		}
+		else if (buf_string.compare(0, 5, "login") == 0)
+		{
+			if (user_args.size() != 2)
+			{
+				std::cerr << "Error: login arguments." << std::endl;
+				continue;
+			}
+			else
+			{
+				packet += user_args[0] + " " + user_args[1];
+			}
+		}
+		else if (buf_string == "balance")
+		{
+			packet += buf_string;
+		}
+		else if (buf_string.compare(0, 8, "withdraw") == 0)
+		{
+			if (user_args.size() != 2)
+			{
+				std::cerr << "Error: withdraw arguments." << std::endl;
+				continue;
+			}
+			else
+			{
+				packet += user_args[0] + " " + user_args[1];
+			}
+		}
+		else if (buf_string.compare(0, 8, "transfer") == 0)
+		{
+			if (user_args.size() != 3)
+			{
+				std::cerr << "Error: transfer arguments." << std::endl;
+				continue;
+			}
+			else
+			{
+				packet += user_args[0] + " " + user_args[1] + " " +
+						  user_args[2];
+			}
+		}
+		else
+		{
+			std::cerr << "Error: Incorrect command." << std::endl;
+			continue;
+		}
+		
+		length = packet.length();
+		char packet_copy[packet.length()+1];
+		strcpy(packet_copy, packet.c_str());
+		std::cout << packet << " " << length << std::endl;
 		
 		//send the packet through the proxy to the bank
 		if(sizeof(int) != send(sock, &length, sizeof(int), 0))
 		{
-			printf("fail to send packet length\n");
+			std::cout << "fail to send packet length" << std::endl;
 			break;
 		}
-		if(length != send(sock, (void*)packet, length, 0))
+		if(length != send(sock, &packet_copy, length, 0))
 		{
-			printf("fail to send packet\n");
+			std::cout << "fail to send packet" << std::endl;
 			break;
 		}
-		
 		//TODO: do something with response packet
 		if(sizeof(int) != recv(sock, &length, sizeof(int), 0))
 		{
-			printf("fail to read packet length\n");
+			std::cout << "fail to read packet length" << std::endl;
 			break;
 		}
 		if(length >= 1024)
 		{
-			printf("packet too long\n");
+			std::cout << "packet too long" << std::endl;
 			break;
 		}
-		if(length != recv(sock, packet, length, 0))
+		if(length != recv(sock, &packet_copy, length, 0))
 		{
-			printf("fail to read packet\n");
+			std::cout << "fail to read packet" << std::endl;
 			break;
 		}
+		std::cout << "received packet: " << packet_copy << std::endl;
 	}
 	
 	//cleanup
