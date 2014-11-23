@@ -72,6 +72,56 @@ std::string makeHash(const std::string& input)
     return output;
 }
 
+bool decryptPacket(char* packet, byte* aes_key)
+{
+    try
+    {
+        //Setup the iv to be retrieved
+        byte iv[ AES::BLOCKSIZE];
+        std::string iv_string = std::string(packet).substr(0,32);
+
+        //Decode the iv
+        CryptoPP::StringSource(iv_string, true,
+            new CryptoPP::HexDecoder(
+                new CryptoPP::ArraySink(iv,CryptoPP::AES::DEFAULT_KEYLENGTH)
+            )
+        );
+
+        //Decode the ciphertext
+        std::string ciphertext;
+        CryptoPP::StringSource(std::string(packet).substr(32), true,
+            new CryptoPP::HexDecoder(
+                new CryptoPP::StringSink(ciphertext)
+            ) // HexEncoder
+        );
+
+        GCM< AES >::Decryption d;
+        d.SetKeyWithIV( aes_key, CryptoPP::AES::DEFAULT_KEYLENGTH, iv, sizeof(iv));
+        
+        //Decrypt the ciphertext into plaintext
+        std::string plaintext;
+        CryptoPP::StringSource s(ciphertext, true, 
+            new CryptoPP::AuthenticatedDecryptionFilter(d,
+                new CryptoPP::StringSink(plaintext)
+            ) // StreamTransformationFilter
+        );
+
+        //Replace the packet with the plaintext
+        unpadPacket(plaintext);
+        //printf("Plaintext: %s\n", plaintext.c_str());
+        strcpy(packet, plaintext.c_str());
+        packet[plaintext.size()] = '\0';
+    }
+    catch(std::exception e)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+
+
 //Function generates a random alphanumeric string of length len
 std::string randomString(const unsigned int len)
 {
