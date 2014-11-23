@@ -47,6 +47,13 @@ bool isDouble(std::string questionable_string)
     return true;
 }
 
+std::string to_string(int number)
+{
+   std::stringstream ss;
+   ss << number;
+   return ss.str();
+}
+
 void padCommand(std::string &command){
     //return;
     //pad end of packet with '~' then 'a's
