@@ -250,6 +250,13 @@ void* client_thread(void* arg)
                 {
                     Account* accountTo = bank->getAccountByName(tokens[1]);
                     double amount = atof(tokens[2].c_str());
+                    bool same_name = false;
+                    if(accountTo == bankSession->account)
+                    {
+                    	printf("[error] Same Account Transfer\n");
+                        returnBalance = false;
+                        same_name = true;
+                    }
                     if(!bankSession->account->Transfer(amount, accountTo))
                     {
                         printf("[error] Failed transfer\n");
@@ -262,6 +269,10 @@ void* client_thread(void* arg)
                 if(bankSession->error)
                 {
                     bankSession->sendP(csock, packet, "denied");
+                }
+                else if(same_name)
+                {
+                    bankSession->sendP(csock, packet, "same");
                 }
                 else if(returnBalance)
                 {
