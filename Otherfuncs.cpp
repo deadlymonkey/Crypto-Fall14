@@ -67,3 +67,29 @@ std::string makeHash(const std::string& input)
 
     return output;
 }
+
+//Function generates a random alphanumeric string of length len
+std::string randomString(const unsigned int len)
+{
+    static const char alphanum[] =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
+
+    CryptoPP::AutoSeededRandomPool prng;
+    std::string s = "";
+
+    //When adding each letter, generate a new word32, 
+    //then compute it modulo alphanum's size - 1
+    for(unsigned int i = 0; i < len; ++i)
+    {
+        s += alphanum[prng.GenerateWord32() % (sizeof(alphanum) - 1)];
+    } //end for generate random string
+
+    /*std::string s = "";
+    for (int i = 0; i < len; ++i) {
+        s += alphanum[rand() % (sizeof(alphanum) - 1)];
+    }
+    */
+    return s;
+}
