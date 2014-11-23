@@ -103,7 +103,7 @@ bool sendPacket(long int &csock, void* packet)
     }
 
     return true;
-
+}
 void unpadPacket(std::string &plaintext)
 {
     bool markerFound = false;
