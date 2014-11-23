@@ -37,6 +37,62 @@ std::vector<std::string> split(const std::string &s, char delim) {
     return elems;
 }
 
+bool isDouble(std::string questionable_string)
+{
+    long double value = strtold(questionable_string.c_str(), NULL);
+    if(value == 0)
+    {
+        return false;
+    } //end if no valid conversion
+    return true;
+}
+
+void buildPacket(char* packet, std::string command)
+{
+    packet[0] = '\0';
+    padCommand(command);
+    //printf("Post padding command size: %d\n", (int)command.size());
+    //Check if command overflows
+    if(command.size() <= 1022)
+    {
+        strcpy(packet, (command + '\0').c_str());
+        packet[command.size()] = '\0';
+    } //end if command does not overflow
+
+}
+
+
+void unpadPacket(std::string &plaintext)
+{
+    bool markerFound = false;
+    int position = -1;
+    for(unsigned int i = 0; i < plaintext.size(); ++i)
+    {
+        if(plaintext[i] == '~')
+        {
+            if(markerFound)
+            {
+                markerFound = false;
+                position = -1;
+            } else {
+                markerFound = true;
+                position = i;
+            }
+            continue;
+        }
+        if(plaintext[i] != 'a' && markerFound)
+        {
+            markerFound = false;
+            position = -1;
+        }
+    }
+    if(position > 0)
+    {
+        plaintext = plaintext.substr(0,position);
+    }
+    return;
+}
+
 //Listens for a packet and modifies the packet variable accordingly
 bool listenPacket(long int &csock, char* packet)
 {
