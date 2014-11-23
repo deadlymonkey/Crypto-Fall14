@@ -290,6 +290,10 @@ int main(int argc, char* argv[])
 						if(tokens[0] == "denied")
 						{
 							cout << "Transaction denied.\n";
+						}
+						if else(tokens[0] == "same")
+						{
+							cout << "Cannot Transfer to yourself.\n";
 						} else {
 							printf("Transaction complete!\nCurrent balance: %s\n", tokens[0].c_str());
 						}
