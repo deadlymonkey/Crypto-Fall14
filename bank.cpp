@@ -11,6 +11,9 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <string.h>
+#include "account.h"
+#include "bank.h"
+#include "Otherfuncs.cpp"
 
 void* client_thread(void* arg);
 void* console_thread(void* arg);
@@ -148,12 +151,12 @@ void* client_thread(void* arg)
 		//TODO: process packet data
 		split(std::string(packet),',', tokens);
 		
-		if(token.size() < 1)
+		if(tokens.size() < 1)
 		{
 			continue; // If there is nothing in the packet skip it
 		}
 		
-		if(token[0] == "Logout")
+		if(tokens[0] == "Logout")
 		{
 			bankSession->endSession(); // Kill the Bank
 			break; // Break the loop
@@ -161,38 +164,38 @@ void* client_thread(void* arg)
 		
 		if(bankSession->state == 1)
 		{
-			if(tokens.size() == 2 && tokens[0] == "Handshake" && tokens[1] == 128)
+			if(tokens.size() == 2 && tokens[0] == "Handshake" && tokens[1].size() == 128)
 			{
 				bankSession->atmNonce = tokens[1];
 				bankSession->bankNonce = makeHash(randomString(128));
-				if(bankSession->bankNonce == 0)
+				if(bankSession->bankNonce.size() == 0)
 				{
 					printf("[Error]\n");
-					crtical = true;
+					critical = true;
 					break;
 				}
-				buildPacket(packet, "handshakeRespone," + bankSession->atmNonce + "," + bankSession->bankNonce);
-				if(!encryptPacket((char*)packet, bankSession-key))
+				buildPacket(packet, "handshakeResponse," + bankSession->atmNonce + "," + bankSession->bankNonce);
+				if(!encryptPacket((char*)packet, bankSession->key))
 				{
 					printf("[Error]\n");
-					crtical = true;
+					critical = true;
 					break;
 				}
 				if(!sendPacket(csock, packet))
 				{
 					printf("[Error]\n");
-					crtical = true;
+					critical = true;
 					break;
 				}
 				bankSession->state = 2;
 			}
 		}
-		if (bankSession->status == 2)
+		if (bankSession->state == 2)
 		{
 		        if(!bankSession->validateNonce(std::string(packet)))
 		        {
 		             printf("[ERROR]\n");
-		             fatalError = true;
+		             critical = true;
 		             break;
 		        }
 		        if(tokens.size() == 5 && tokens[0] == "login" && tokens[1].size() == 128)
