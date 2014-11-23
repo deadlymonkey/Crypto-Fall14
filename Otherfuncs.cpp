@@ -47,6 +47,18 @@ bool isDouble(std::string questionable_string)
     return true;
 }
 
+void padCommand(std::string &command){
+    //return;
+    //pad end of packet with '~' then 'a's
+    //printf("Before pad size: %d\n", (int)command.size());
+    if (command.size() < 460){ //1022 because buildPacket() has two '\0's
+        command += "~";
+    }
+    while(command.size() < 460){
+        command += "a";
+    }
+}
+
 void buildPacket(char* packet, std::string command)
 {
     packet[0] = '\0';
@@ -61,6 +73,36 @@ void buildPacket(char* packet, std::string command)
 
 }
 
+void sleepTime(unsigned int sleepMS){
+    #ifdef LINUX
+        usleep(sleepMS%1000000); //usleep takes microseconds
+    #endif
+    #ifdef WINDOWS
+        Sleep(sleepMS%1000); //Sleep takes milliseconds
+    #endif
+}
+
+bool sendPacket(long int &csock, void* packet)
+{
+    CryptoPP::AutoSeededRandomPool prng;
+    sleepTime(prng.GenerateWord32()); //wait for random amount of time
+
+    int length = 0;
+
+    length = strlen((char*)packet);
+    //printf("Packet size: %d\n", length);
+    if(sizeof(int) != send(csock, &length, sizeof(int), 0))
+    {
+        printf("[error] fail to send packet length\n");
+        return false;
+    }
+    if(length != send(csock, packet, length, 0))
+    {
+        printf("[error] fail to send packet\n");
+        return false;
+    }
+
+    return true;
 
 void unpadPacket(std::string &plaintext)
 {
@@ -132,6 +174,60 @@ std::string makeHash(const std::string& input)
     encoder.MessageEnd();
 
     return output;
+}
+
+bool encryptPacket(char* packet, byte* aes_key)
+{
+    try
+    {
+        std::string plaintext(packet);
+
+        //Decode the key from the file
+        GCM< AES >::Encryption p;
+        //iv will help us with keying out cipher
+        //it is also randomly generated
+        byte iv[ AES::BLOCKSIZE ];
+        CryptoPP::AutoSeededRandomPool prng;
+        prng.GenerateBlock( iv, sizeof(iv) );
+
+        //Merge the iv and key
+        p.SetKeyWithIV( aes_key, CryptoPP::AES::DEFAULT_KEYLENGTH, iv, sizeof(iv) );
+
+        //Encode the IV
+        std::string encoded_iv;
+        CryptoPP::StringSource(iv, sizeof(iv), true,
+            new CryptoPP::HexEncoder(
+                new CryptoPP::StringSink(encoded_iv)
+            ) // HexEncoder
+        );
+
+        //Create the ciphertext from the plaintext
+        std::string ciphertext;
+        CryptoPP::StringSource(plaintext, true,
+            new CryptoPP::AuthenticatedEncryptionFilter(p,
+                new CryptoPP::StringSink(ciphertext)
+            )
+        );
+
+        //Encode the cipher to be sent
+        std::string encodedCipher;
+        CryptoPP::StringSource(ciphertext, true,
+            new CryptoPP::HexEncoder(
+                new CryptoPP::StringSink(encodedCipher)
+            ) // HexEncoder
+        );
+
+        //replace the packet with the econded ciphertext
+        strcpy(packet, (encoded_iv+encodedCipher).c_str());
+        packet[(encoded_iv+encodedCipher).size()] = '\0';
+        //printf("Encrypted packet size: %d\n", (int)strlen(packet));
+    }
+    catch(std::exception e)
+    {
+        return false;
+    }
+    
+    return true;
 }
 
 bool decryptPacket(char* packet, byte* aes_key)
