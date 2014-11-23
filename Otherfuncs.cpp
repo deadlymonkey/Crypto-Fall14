@@ -338,3 +338,4 @@ void generateRandomKey(std::string name, byte* key, long unsigned int length)
         file_out << encoded;
     } //end if valid outfstream
     file_out.close();
+}
