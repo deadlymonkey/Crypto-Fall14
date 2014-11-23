@@ -203,6 +203,27 @@ bool Account::setPIN(const std::string& pin, const std::string& bankSalt)
 	}
 }
 
+bool Account::tryHash(const std::string& attemptedHash)
+{
+	if(this->locked || this->inUse)
+	{
+		return false;
+	}
+	if(this->hash == attemptedHash)
+	{
+		return true;
+	} else {
+			if(failsRemaining > 1)
+		{
+			this->failsRemaining -= 1;
+		} 	else {
+			this->locked = true;
+		}
+		return false;
+	}	
+}
+
+
 bool Account::attemptLogin(const std::string& pin, const std::string& bankSalt)
 {
 	if(this->locked || this->inUse)
