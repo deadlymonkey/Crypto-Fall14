@@ -4,6 +4,10 @@
 #include <sstream>
 #include "includes/cryptopp/sha.h"
 #include "includes/cryptopp/hex.h"
+#include "includes/cryptopp/aes.h"
+#include "includes/cryptopp/ccm.h"
+#include "includes/cryptopp/gcm.h"
+#include "includes/cryptopp/osrng.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
