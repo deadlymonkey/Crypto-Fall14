@@ -13,7 +13,7 @@
 #include <string.h>
 #include "account.h"
 #include "bank.h"
-#include "Otherfuncs.cpp"
+#include "Otherfuncs.h"
 
 void* client_thread(void* arg);
 void* console_thread(void* arg);

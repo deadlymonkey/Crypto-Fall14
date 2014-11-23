@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <string.h>	
 #include <iostream>
-#include "Otherfuncs.cpp"
+#include "Otherfuncs.h"
 
 int main(int argc, char* argv[])
 {

@@ -1,7 +1,6 @@
 #include "account.h"
 #include <string.h>
 #include <fstream>
-#include <util.h>
 #include <iostream>
 
 /*
@@ -138,13 +137,13 @@ bool Account::Deposit(long double funds)
  * Other functions
  */
 
-bool Account::createAccount(const std::string& accountHolder, const int& accountNum, const std::string& pin, const std::string& bankSalt)
+bool Account::createAccount(const std::string& accountName, const int& accountNum, const std::string& pin, const std::string& bankSalt)
 {
-	if(accountHolder == "")
+	if(accountName == "")
 	{
 		return false;
 	}
-	this->accountHolder = accountHolder;
+	this->accountName = accountName;
 	if(accountNum <= 0)
 	{
 		return false;
@@ -158,7 +157,7 @@ bool Account::createAccount(const std::string& accountHolder, const int& account
 
 	std::ofstream outfile;
 
-	std::string cardFile = "cards/" + this->accountHolder + ".card";
+	std::string cardFile = "cards/" + this->accountName + ".card";
 
 	std::ofstream file_out(cardFile.c_str());
 	if(file_out.is_open())
@@ -245,6 +244,4 @@ bool Account::attemptLogin(const std::string& pin, const std::string& bankSalt)
 		}
 		return false;
 	}
-}
-	
 }

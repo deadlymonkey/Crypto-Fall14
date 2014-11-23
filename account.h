@@ -1,6 +1,7 @@
 #ifndef __account_h__
 #define __account_h__
 #include <string>
+#include "Otherfuncs.h"
 #include "includes/cryptopp/sha.h"
 
 class Account
