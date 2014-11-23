@@ -13,6 +13,12 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <fstream>
+
+
+using CryptoPP::GCM;
+using CryptoPP::AES;
+using CryptoPP::CCM;
+
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
     std::stringstream ss(s);
     std::string item;
