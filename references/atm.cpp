@@ -315,7 +315,29 @@ int main(int argc, char* argv[])
 
             if(atmSession.state == 5)
             {
-                break;
+                std::string userResponse;
+                bool another = false;
+                while(1)
+                {
+                    cout << "Would you like to complete another transaction (y/n)?\n";
+                    cin >> userResponse;
+                    if (userResponse.tolower() == "y" or  userResponse.tolower() == "n")
+                    {
+                        if (userResponse.tolower() == "y")
+                        {
+                            another = true;
+                        }
+                        break;
+                    }
+                    else
+                    {
+                        cout << "Invalid Input please enter y or n\n";
+                    }
+                }
+                if(!another)
+                {
+                    break;
+                }
             }
 
         }
