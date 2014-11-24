@@ -13,7 +13,7 @@
 #include <string.h>
 #include "account.h"
 #include "bank.h"
-#include "util.h"
+#include "Sharedfuncs.h"
 #include <exception>
 
 void* client_thread(void* arg);
@@ -225,6 +225,7 @@ void* client_thread(void* arg)
                 break;
             case 5:
                 bool returnBalance = false;
+                bool same_name = false;
                 bankSession->state = 4;
                 if(bankSession->error)
                 {
@@ -250,7 +251,7 @@ void* client_thread(void* arg)
                 {
                     Account* accountTo = bank->getAccountByName(tokens[1]);
                     double amount = atof(tokens[2].c_str());
-                    bool same_name = false;
+                    same_name = false;
                     if(accountTo == bankSession->account)
                     {
                     	printf("[error] Same Account Transfer\n");

@@ -18,7 +18,7 @@
 #include <sstream>
 #include <iterator>
 #include <termios.h>
-#include "util.h"
+#include "Sharedfuncs.h"
 #include "atm.h"
 #include <exception>
 
@@ -128,7 +128,7 @@ int main(int argc, char* argv[])
 			new CryptoPP::ArraySink(atm_key,CryptoPP::AES::DEFAULT_KEYLENGTH)
 		)
 	);
-    atmSession.key = atm_key;	
+    atmSession.key = atm_key;
 
 	//input loop   
     while(1)
@@ -291,7 +291,7 @@ int main(int argc, char* argv[])
 						{
 							cout << "Transaction denied.\n";
 						}
-						if else(tokens[0] == "same")
+						else if(tokens[0] == "same")
 						{
 							cout << "Cannot Transfer to yourself.\n";
 						} else {
@@ -315,29 +315,7 @@ int main(int argc, char* argv[])
 
             if(atmSession.state == 5)
             {
-                std::string userResponse;
-                bool another = false;
-                while(1)
-                {
-                    cout << "Would you like to complete another transaction (y/n)?\n";
-                    cin >> userResponse;
-                    if (userResponse.tolower() == "y" or  userResponse.tolower() == "n")
-                    {
-                        if (userResponse.tolower() == "y")
-                        {
-                            another = true;
-                        }
-                        break;
-                    }
-                    else
-                    {
-                        cout << "Invalid Input please enter y or n\n";
-                    }
-                }
-                if(!another)
-                {
-                    break;
-                }
+                break;
             }
 
         }
