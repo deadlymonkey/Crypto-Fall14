@@ -1,7 +1,7 @@
 #include "account.h"
 #include <string.h>
 #include <fstream>
-#include <util.h>
+#include "Sharedfuncs.h"
 #include <iostream>
 
 //Constuctor function which sets initial values

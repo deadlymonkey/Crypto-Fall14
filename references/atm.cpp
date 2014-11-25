@@ -9,7 +9,6 @@
 #include <netdb.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 #include <fstream>
 #include <streambuf>
 #include <iostream>
@@ -20,14 +19,13 @@
 #include <termios.h>
 #include "Sharedfuncs.h"
 #include "atm.h"
-#include <exception>
 
 using std::cout;
 using std::cin;
 using std::endl;
 
-//Helper function for getpass() It reads in each character to be masked.
-int getch() {
+//Gets next character. Used by getPassword.
+int getNextChar() {
     int ch;
     struct termios t_old, t_new;
 
@@ -43,7 +41,7 @@ int getch() {
 }
 
 //This function prompts for and receives the user-entered PIN (masked with *'s)
-std::string getpass(const char *prompt, bool show_asterisk=true){
+std::string getPassword(const char *prompt, bool show_asterisk=true){
     const char BACKSPACE=127;
     const char RETURN=10;
 
@@ -51,7 +49,7 @@ std::string getpass(const char *prompt, bool show_asterisk=true){
     unsigned char ch=0;
 
     cout << prompt;
-    while((ch=getch())!=RETURN){
+    while((ch=getNextChar())!=RETURN){
         if(ch==BACKSPACE){
             if(password.length()!=0){
                 if(show_asterisk)
@@ -165,14 +163,12 @@ int main(int argc, char* argv[])
 
                 
             // There exists a command, check the command
-            if(((std::string) "logout") == command|| ((std::string) "exit") == command)
+            if(((std::string) "logout") == command || ((std::string) "exit") == command)
             {   
                 if(atmSession.state > 0)
                 {
                     atmSession.sendP(sock,packet,"logout");
                 }
-				//TODO: Send logout message so that someone could log in at a different atm
-                //sendPacket = 1; // Send packet because valid command
                 break;
             }
             else if(((std::string) "login") == command && atmSession.state == 0) //if command is 'login'
@@ -201,7 +197,7 @@ int main(int argc, char* argv[])
 
                         //this block prompts for PIN for login and puts it in the pin var
                         std::string pin;
-                        pin = getpass("PIN: ", true);
+                        pin = getPassword("PIN: ", true);
                         //Pin is limited to 6 characters
                         //pin = pin.substr(0,6);
 
