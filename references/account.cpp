@@ -4,9 +4,7 @@
 #include <util.h>
 #include <iostream>
 
-/*
- * Constuctor function which sets initial values
- */
+//Constuctor function which sets initial values
 
 Account::Account()
 {
@@ -21,9 +19,7 @@ Account::Account()
 	hash = "";
 }
 
-/*
- * Transfer functions to move funds between accounts
- */
+//Transfer functions to move funds between accounts
 bool Account::tryTransfer(long double funds, const Account* toAccount) const
 {
 	if(!this->transferAttemptsRemaining)
