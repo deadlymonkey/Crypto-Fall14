@@ -5,12 +5,12 @@
 #include <iostream>
 
 /*
- * Constuct
+ * Constuctor function which sets initial values
  */
 
 Account::Account()
 {
-	locked = true;
+	islocked = true;
 	inUse = false;
 	failsRemaining = 3;
 	transferAttemptsRemaining = 3;
@@ -22,7 +22,7 @@ Account::Account()
 }
 
 /*
- * Transfer
+ * Transfer functions to move funds between accounts
  */
 bool Account::tryTransfer(long double funds, const Account* toAccount) const
 {
@@ -67,13 +67,10 @@ bool Account::Transfer(long double funds, Account* toAccount)
 	return false;
 }
 
-/*
- * Withdraw
- */
-//Funds is what you're withdrawing
+// Withdraw function to handle user withdrawing from account
 bool Account::tryWithdraw(long double funds) const
 {
-	//We don't allow overdraft
+	//do not allow withdrawing more than user has
 	if(this->balance - funds < 0)
 	{
 		return false;
@@ -83,13 +80,13 @@ bool Account::tryWithdraw(long double funds) const
 		return false;
 	}
 
-	//You cannot exceed your withdrawal limit
+	//Check if funds is exceeding remaining limit
 	if(funds > this->withdrawLimitRemaining)
 	{
 		return false;
 	}
 
-	//Let's not overflow now!
+	//Prevent overflow
 	if(doubleOverflow(this->balance,funds*-1))
 	{
 		return false;
@@ -112,9 +109,7 @@ bool Account::Withdraw(long double funds)
 	return false;
 }
 
-/*
- * Deposit
- */
+// Deposit functions to allow for adding of fundss to account
 
 bool Account::tryDeposit(long double funds) const
 {
@@ -147,17 +142,15 @@ bool Account::Deposit(long double funds)
 }
 
 
-/*
- * Other functions
- */
+//create account with given paramters 
 
-bool Account::createAccount(const std::string& accountHolder, const int& accountNum, const std::string& pin, const std::string& appSalt)
+bool Account::createAccount(const std::string& accountName, const int& accountNum, const std::string& pin, const std::string& bankSalt)
 {
-	if(accountHolder == "")
+	if(accountName == "")
 	{
 		return false;
 	}
-	this->accountHolder = accountHolder;
+	this->accountName = accountName;
 	if(accountNum <= 0)
 	{
 		return false;
@@ -172,42 +165,37 @@ bool Account::createAccount(const std::string& accountHolder, const int& account
 
 	std::ofstream outfile;
 
-	std::string cardFile = "cards/" + this->accountHolder + ".card";
+	std::string cardFile = "cards/" + this->accountName + ".card";
 
 	std::ofstream file_out(cardFile.c_str());
+	// write values to cards
 	if(file_out.is_open())
 	{
 		file_out << card;
-	} //end if valid outfstream
+	} 
 	file_out.close();
-	//outfile.open (cardFile.c_str(), std::ios_base::out|std::ios_base::trunc);
-	//if(outfile.is_open())
-	//{
-	//	outfile << card;
-	//}
-	//outfile.close();
 
-	//If you successfully set the pin then the account can be unlocked for use.
-	if(setPIN(pin, appSalt))
+	//If oin sucessfully set then the account can be unlocked for use.
+	if(setPIN(pin, bankSalt))
 	{
-		locked = false;
+		islocked = false;
 	} else {
-		locked = true;
+		islocked = true;
 	}
 
 	return true;
 }
 
-bool Account::setPIN(const std::string& pin, const std::string& appSalt)
+bool Account::setPIN(const std::string& pin, const std::string& bankSalt)
 {
 	//require pin length of at least 6 but no more than 32
 	if(pin.length() < 6 || pin.length() > 32)
 	{
 		return false;
 	}
-	std::string hash = makeHash(this->card + pin + appSalt);
+	std::string hash = makeHash(this->card + pin + bankSalt);
 
-	//verify that hash was actually created
+	//verify that hash was created
 	if(hash.length() > 0)
 	{
 		this->hash = hash;
@@ -217,27 +205,27 @@ bool Account::setPIN(const std::string& pin, const std::string& appSalt)
 	}
 }
 
-bool Account::tryLogin(const std::string& pin, const std::string& appSalt)
+bool Account::tryLogin(const std::string& pin, const std::string& bankSalt)
 {
-	if(this->locked || this->inUse)
+	if(this->islocked || this->inUse)
 	{
 		return false;
 	}
 
-	std::string attemptedHash = makeHash(this->card + pin + appSalt);
+	std::string attemptedHash = makeHash(this->card + pin + bankSalt);
 
 	if(this->hash == attemptedHash)
 	{
 		return true;
 	} else {
-		registerFail();
+		failCount();
 		return false;
 	}
 }
 
 bool Account::tryHash(const std::string& attemptedHash)
 {
-	if(this->locked || this->inUse)
+	if(this->islocked || this->inUse)
 	{
 		return false;
 	}
@@ -245,17 +233,17 @@ bool Account::tryHash(const std::string& attemptedHash)
 	{
 		return true;
 	} else {
-		registerFail();
+		failCount();
 		return false;
 	}	
 }
 
-void Account::registerFail()
+void Account::failCount()
 {
 	if(failsRemaining > 1)
 	{
 		this->failsRemaining -= 1;
 	} else {
-		this->locked = true;
+		this->islocked = true;
 	}
 }

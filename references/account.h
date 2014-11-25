@@ -23,17 +23,17 @@ public:
 
 	//Other functions
 	const long double getBalance(){ return this->balance; }
-	const std::string getAccountHolder(){ return this->accountHolder; }
-	bool setPIN(const std::string& pin, const std::string& appSalt);
-	bool createAccount(const std::string& accountHolder, const int& accountNum, const std::string& pin, const std::string& appSalt);
-	bool tryLogin(const std::string& pin, const std::string& appSalt);
+	const std::string getAccountHolder(){ return this->accountName; }
+	bool setPIN(const std::string& pin, const std::string& bankSalt);
+	bool createAccount(const std::string& accountName, const int& accountNum, const std::string& pin, const std::string& bankSalt);
+	bool tryLogin(const std::string& pin, const std::string& bankSalt);
 	bool tryHash(const std::string& attemptedHash);
 
 	//Public variables
 	bool inUse;
 private:
 	std::string hash;
-	std::string accountHolder;
+	std::string accountName;
 	std::string salt;
 	std::string card;
 	int accountNum;
@@ -42,8 +42,8 @@ private:
 	long double depositLimitRemaining;
 	int transferAttemptsRemaining;
 	int failsRemaining;
-	bool locked;
+	bool islocked;
 
-	void registerFail();
+	void failCount();
 };
 #endif
