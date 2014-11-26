@@ -27,32 +27,32 @@ int main(int argc, char* argv[])
         return -1;
     }
     
-    unsigned short ourport = atoi(argv[1]);
+    unsigned short port = atoi(argv[1]);
     
     //socket setup
-    int lsock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if(!lsock)
+    int msock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if(!msock)
     {
         printf("fail to create socket\n");
         return -1;
     }
     
     //listening address
-    sockaddr_in addr_l;
-    memset(&addr_l,0,sizeof(addr_l));
-    addr_l.sin_family = AF_INET;
-    addr_l.sin_port = htons(ourport);
-    unsigned char* ipaddr = reinterpret_cast<unsigned char*>(&addr_l.sin_addr);
-    ipaddr[0] = 127;
-    ipaddr[1] = 0;
-    ipaddr[2] = 0;
-    ipaddr[3] = 1;
-    if(0 != bind(lsock, reinterpret_cast<sockaddr*>(&addr_l), sizeof(addr_l)))
+    sockaddr_in addr;
+    memset(&addr,0,sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    unsigned char* ip_addr = reinterpret_cast<unsigned char*>(&addr.sin_addr);
+    ip_addr[0] = 127;
+    ip_addr[1] = 0;
+    ip_addr[2] = 0;
+    ip_addr[3] = 1;
+    if(0 != bind(msock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)))
     {
         printf("failed to bind socket\n");
         return -1;
     }
-    if(0 != listen(lsock, SOMAXCONN))
+    if(0 != listen(msock, SOMAXCONN))
     {
         printf("failed to listen on socket\n");
         return -1;
@@ -72,12 +72,12 @@ int main(int argc, char* argv[])
     //loop forever accepting new connections
     while(1)
     {
-        sockaddr_in unused;
-        socklen_t size = sizeof(unused);
-        int csock = accept(lsock, reinterpret_cast<sockaddr*>(&unused), &size);
-        if(csock < 0)   //bad client, skip it
+        sockaddr_in empty;
+        socklen_t size = sizeof(empty);
+        int c_sock = accept(msock, reinterpret_cast<sockaddr*>(&empty), &size);
+        if(c_sock < 0)   //bad client, skip it
             continue;
-        bankSocketThread->csock = &csock;
+        bankSocketThread->c_sock = &c_sock;
         pthread_t thread;
         pthread_create(&thread, NULL, client_thread, (void*)bankSocketThread);
     }
@@ -94,21 +94,21 @@ void* client_thread(void* arg)
     bankSession->bank = bank;
     bankSession->key = 0;
 
-    long int csock = (long int)*(bankSocketThread->csock);
+    long int c_sock = (long int)*(bankSocketThread->c_sock);
     
-    printf("[bank] client ID #%ld connected\n", csock);
+    printf("[bank] client ID #%ld connected\n", c_sock);
     
     //input loop
     int length;
     char packet[1024];
-    bool fatalError = false;
-    std::vector<std::string> tokens;
+    bool critialError = false;
+    std::vector<std::string> token;
     while(1)
     {
-        fatalError = false;
-        tokens.clear();
+        critialError = false;
+        token.clear();
         
-        if(!listenPacket(csock, packet))
+        if(!listenPacket(c_sock, packet))
         {
             printf("[bank] fail to read packet\n");
             break;
@@ -148,15 +148,15 @@ void* client_thread(void* arg)
 
         //Parse the packet
         //std::string strPacket = packet;
-        split(std::string(packet),',', tokens);
+        split(std::string(packet),',', token);
 
         //We should get something, if not ignore this packet
-        if(tokens.size() < 1)
+        if(token.size() < 1)
         {
             continue;
         }
 
-        if(tokens[0] == "logout")
+        if(token[0] == "logout")
         {
             bankSession->endSession();
             break;
@@ -167,27 +167,27 @@ void* client_thread(void* arg)
         {
             case 0:
             case 1:
-                if(tokens.size() == 2 && tokens[0] == "handshake" && tokens[1].size() == 128)
+                if(token.size() == 2 && token[0] == "handshake" && token[1].size() == 128)
                 {
-                    bankSession->atmNonce = tokens[1];
+                    bankSession->atmNonce = token[1];
                     bankSession->bankNonce = makeHash(randomString(128));
                     if(bankSession->bankNonce.size() == 0)
                     {
                         printf("Unexpected error\n");
-                        fatalError = true;
+                        critialError = true;
                         break;
                     }
                     buildPacket(packet, "handshakeResponse," + bankSession->atmNonce + "," + bankSession->bankNonce);
                     if(!encryptPacket((char*)packet,bankSession->key))
                     {
                         printf("Unexpected error\n");
-                        fatalError = true;
+                        critialError = true;
                         break;
                     }
-                    if(!sendPacket(csock, packet))
+                    if(!sendPacket(c_sock, packet))
                     {
                         printf("Unexpected error\n");
-                        fatalError = true;
+                        critialError = true;
                         break;
                     }
                     bankSession->state = 2;
@@ -198,15 +198,15 @@ void* client_thread(void* arg)
                 if(!bankSession->validateNonce(std::string(packet)))
                 {
                     printf("Unexpected error\n");
-                    fatalError = true;
+                    critialError = true;
                     break;
                 }
-                if(tokens.size() == 5 && tokens[0] == "login" && tokens[1].size() == 128)
+                if(token.size() == 5 && token[0] == "login" && token[1].size() == 128)
                 {
                     //Now we'll try to find the account
-                    //bankSession->account = bank->tryLoginHash(tokens[1]);
-                    bankSession->account = bank->getAccountByName(tokens[2]);
-                    if(!bankSession->account || !bankSession->account->tryHash(tokens[1]))
+                    //bankSession->account = bank->tryLoginHash(token[1]);
+                    bankSession->account = bank->getAccountByName(token[2]);
+                    if(!bankSession->account || !bankSession->account->tryHash(token[1]))
                     {
                         //Failed login
                         //TODO Blacklist hash
@@ -215,10 +215,10 @@ void* client_thread(void* arg)
                     }
                     bankSession->account->inUse = true;
                     bankSession->state = 5;
-                    if(!bankSession->sendP(csock,packet, "ack"))
+                    if(!bankSession->sendP(c_sock,packet, "ack"))
                     {
                         printf("Unexpected error!\n");
-                        fatalError = true;
+                        critialError = true;
                         break;
                     }
                 }
@@ -231,13 +231,13 @@ void* client_thread(void* arg)
                 {
                     returnBalance = false;
                 } 
-                else if(tokens.size() == 3 && tokens[0] == "balance")
+                else if(token.size() == 3 && token[0] == "balance")
                 {
                     returnBalance = true;
                 }
-                else if(tokens.size() == 4 && tokens[0] == "withdraw" && isDouble(tokens[1]))
+                else if(token.size() == 4 && token[0] == "withdraw" && isDouble(token[1]))
                 {
-                    double amount = atof(tokens[1].c_str());
+                    double amount = atof(token[1].c_str());
                     if(!bankSession->account->Withdraw(amount))
                     {
                         printf("[error] Failed withdraw\n");
@@ -246,11 +246,11 @@ void* client_thread(void* arg)
                     }
                     returnBalance = true;
                 }
-                else if(tokens.size() == 5 && tokens[0] == "transfer" && !isDouble(tokens[1])
-                    && isDouble(tokens[2]))
+                else if(token.size() == 5 && token[0] == "transfer" && !isDouble(token[1])
+                    && isDouble(token[2]))
                 {
-                    Account* accountTo = bank->getAccountByName(tokens[1]);
-                    double amount = atof(tokens[2].c_str());
+                    Account* accountTo = bank->getAccountByName(token[1]);
+                    double amount = atof(token[2].c_str());
                     same_name = false;
                     if(accountTo == bankSession->account)
                     {
@@ -269,17 +269,17 @@ void* client_thread(void* arg)
 
                 if(bankSession->error)
                 {
-                    bankSession->sendP(csock, packet, "denied");
+                    bankSession->sendP(c_sock, packet, "denied");
                 }
                 else if(same_name)
                 {
-                    bankSession->sendP(csock, packet, "same");
+                    bankSession->sendP(c_sock, packet, "same");
                 }
                 else if(returnBalance)
                 {
-                    char moneyStr[256];
-                    sprintf(moneyStr,"%.2Lf",bankSession->account->getBalance());
-                    bankSession->sendP(csock, packet, std::string(moneyStr));
+                    char money[256];
+                    sprintf(money,"%.2Lf",bankSession->account->getBalance());
+                    bankSession->sendP(c_sock, packet, std::string(money));
                 }
 
                 //Reset back to initial state
@@ -287,7 +287,7 @@ void* client_thread(void* arg)
                 break;
         }
         
-        if(fatalError)
+        if(critialError)
         {
             bankSession->endSession();
             break;
@@ -296,9 +296,9 @@ void* client_thread(void* arg)
 
     bankSession->endSession();
 
-    printf("[bank] client ID #%ld disconnected\n", csock);
+    printf("[bank] client ID #%ld disconnected\n", c_sock);
 
-    close(csock);
+    close(c_sock);
     delete bankSession;
     return NULL;
 }
@@ -337,48 +337,48 @@ void* console_thread(void* arg)
     new_account->Deposit(0);
     bank->addAccount(new_account);
 
-    char buf[80];
+    char buffer[80];
     while(1)
     {
         printf("bank> ");
-        fgets(buf, 79, stdin);
-        buf[strlen(buf)-1] = '\0';  //trim off trailing newline
+        fgets(buffer, 79, stdin);
+        buffer[strlen(buffer)-1] = '\0';  //trim off trailing newline
 
-        std::vector<std::string> tokens;
-        split(buf,' ',tokens);
+        std::vector<std::string> token;
+        split(buffer,' ',token);
 
-        if(tokens.size() <= 0)
+        if(token.size() <= 0)
         {
             printf("Invalid input\n");
             continue;
         }
-        if(tokens[0] == "balance")
+        if(token[0] == "balance")
         {
-            if(tokens.size() != 2)
+            if(token.size() != 2)
             {
                 printf("Invalid input\n");
                 continue;
             }
 
-            Account* current_account = bank->getAccountByName(tokens[1]);
-            if(!current_account)
+            Account* current = bank->getAccountByName(token[1]);
+            if(!current)
             {
                 printf("Invalid account\n");
                 continue;
             }
-            printf("Balance: %.2Lf\n", current_account->getBalance());
+            printf("Balance: %.2Lf\n", current->getBalance());
             continue;
         }
 
-        if(tokens[0] == "deposit")
+        if(token[0] == "deposit")
         {
-            if(tokens.size() != 3)
+            if(token.size() != 3)
             {
                 printf("Invalid input\n");
                 continue;
             }
 
-            long double amount = atof(tokens[2].c_str());
+            long double amount = atof(token[2].c_str());
 
             if(amount <= 0)
             {
@@ -386,17 +386,17 @@ void* console_thread(void* arg)
                 continue;
             }
 
-            Account* current_account = bank->getAccountByName(tokens[1]);
-            if(!current_account)
+            Account* current = bank->getAccountByName(token[1]);
+            if(!current)
             {
                 printf("Invalid account\n");
                 continue;
             }
 
-            if(current_account->Deposit(amount))
+            if(current->Deposit(amount))
             {
-                long double cur_balance = current_account->getBalance();
-                printf("Money deposited!\nNew balance: %.2Lf\n", cur_balance);
+                long double balance = current->getBalance();
+                printf("Money deposited!\nNew balance: %.2Lf\n", balance);
             } else {
                 printf("Error depositing money!\n");
             }
@@ -449,7 +449,7 @@ Bank::~Bank()
 }
 
 
-bool BankSession::sendP(long int &csock, void* packet, std::string command)
+bool BankSession::sendP(long int &c_sock, void* packet, std::string command)
 {
     if(!this->key)
     {
@@ -468,7 +468,7 @@ bool BankSession::sendP(long int &csock, void* packet, std::string command)
         return false;
     }
 
-    return sendPacket(csock, packet);
+    return sendPacket(c_sock, packet);
 }
 
 bool BankSession::validateNonce(std::string packet)
