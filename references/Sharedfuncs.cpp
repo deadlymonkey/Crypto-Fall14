@@ -82,14 +82,14 @@ std::string randomString(const unsigned int len)
 	}
     return s;
 }
-bool doubleOverflow(const long double& x, const long double& y)
+bool doubleOverflow(const long double& a, const long double& b)
 {
 	long double max = std::numeric_limits<long double>::max();
 	long double min = std::numeric_limits<long double>::min();
 	//Conditionals to prevent overflow
-	if(y > 0)
+	if(b > 0)
 	{
-		if(x + y >= max)
+		if(a + b >= max)
 		{
 			return true;
 		} 
@@ -98,9 +98,9 @@ bool doubleOverflow(const long double& x, const long double& y)
 			return false;
 		}
 	} 
-	else if(y < 0)
+	else if(b < 0)
 	{
-		if(x - y <= min)
+		if(a - b <= min)
 		{
 			return true;
 		} 
@@ -115,15 +115,15 @@ bool doubleOverflow(const long double& x, const long double& y)
 	} 
 }
 // This function returns a vector of strings
-int split(const std::string &s, char delim, std::vector<std::string> &elems) 
+int split(const std::string &s, char delim, std::vector<std::string> &items) 
 {
     std::stringstream ss(s);
     std::string item;
     while(std::getline(ss, item, delim)) 
     {
-        elems.push_back(item);
+        items.push_back(item);
     }
-    return elems.size();
+    return items.size();
 }
 
 void padCommand(std::string &command){
