@@ -96,7 +96,7 @@ bool doubleOverflow(const long double& x, const long double& y)
 		else
 		{
 			return false;
-		} /
+		}
 	} 
 	else if(y < 0)
 	{
@@ -240,7 +240,7 @@ bool isDouble(std::string questionable_string)
 	if(value == 0)
 	{
 		return false;
-	} /
+	}
 	return true;
 } 
 

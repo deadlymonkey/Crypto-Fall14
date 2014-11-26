@@ -15,8 +15,8 @@ struct AtmSession
 
 	//Variables
 	unsigned int state;
-	std::string bankNonce;
-	std::string atmNonce;
+	std::string bank_nonce;
+	std::string atm_nonce;
 	byte* key;
 };
 

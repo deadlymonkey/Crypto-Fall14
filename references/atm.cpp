@@ -24,366 +24,112 @@ using std::cout;
 using std::cin;
 using std::endl;
 
-//Gets next character. Used by getPassword.
+//Gets next character, used by getPassword
 int getNextChar() {
-    int ch;
+    int next_char;
     struct termios t_old, t_new;
 
     tcgetattr(STDIN_FILENO, &t_old);
     t_new = t_old;
     t_new.c_lflag &= ~(ICANON | ECHO);
     tcsetattr(STDIN_FILENO, TCSANOW, &t_new);
-
-    ch = getchar();
-
+    next_char = getchar();
     tcsetattr(STDIN_FILENO, TCSANOW, &t_old);
-    return ch;
+    
+    return next_char;
 }
 
-//This function prompts for and receives the user-entered PIN (masked with *'s)
-std::string getPassword(const char *prompt, bool show_asterisk=true){
-    const char BACKSPACE=127;
-    const char RETURN=10;
-
+//Gets PIN from user while only displaying asterisks
+std::string getPassword(const char *prompt, bool show_asterisk=true)
+{
     std::string password;
-    unsigned char ch=0;
+    const char BACKSPACE = 127;
+    const char RETURN = 10;
+    unsigned char next_char = 0;
 
     cout << prompt;
-    while((ch=getNextChar())!=RETURN){
-        if(ch==BACKSPACE){
-            if(password.length()!=0){
+    while((next_char = getNextChar()) != RETURN)
+    {
+        if(next_char == BACKSPACE)
+        {
+            if(password.length() != 0)
+            {
                 if(show_asterisk)
+                {
                     cout <<"\b \b";
+				}
                 password.resize(password.length()-1);
             }
-        } //end if BACKSPACE
+        }
         else{
-            password+=ch;
+            password += next_char;
             if(show_asterisk)
+            {
                 cout <<'*';
-        } //end else
-    } //end while
-
-  printf("\n");
-  
-  return password;
+			}
+        }
+    }
+    cout << endl;
+    return password;
 }
 
-
-int main(int argc, char* argv[])
-{
-    if(argc != 3)
-    {
-        printf("Usage: atm proxy-port atm-number(1-50)\n");
-        return -1;
-    }
- 
-    //Set the appSalt
-    const std::string appSalt = "THISISASUPERSECUREAPPWIDESALT";
-
-    //socket setup
-    unsigned short proxport = atoi(argv[1]);
-    long int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if(!sock)
-    {
-        printf("fail to create socket\n");
-        return -1;
-    }
-    sockaddr_in addr;
-    memset(&addr,0,sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(proxport);
-    unsigned char* ipaddr = reinterpret_cast<unsigned char*>(&addr.sin_addr);
-    ipaddr[0] = 127;
-    ipaddr[1] = 0;
-    ipaddr[2] = 0;
-    ipaddr[3] = 1;
-    if(0 != connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)))
-    {
-        printf("fail to connect to proxy\n");
-        return -1;
-    }
-
-    AtmSession atmSession = AtmSession();
-    atmSession.key = 0;
-    
-	//construct filename from command-line argument
-	std::string filename = "keys/" + std::string(argv[2]) + ".key";	
-	
-	//read in key from file
-	std::string key;
-	std::ifstream input_file(filename.c_str());
-	if(input_file.is_open()){
-		input_file >> key;
-	}
-	input_file.close();
-
-	byte atm_key[CryptoPP::AES::DEFAULT_KEYLENGTH];
-
-	//assign to atmSessions    	
-	CryptoPP::StringSource(key, true,
-		new CryptoPP::HexDecoder(
-			new CryptoPP::ArraySink(atm_key,CryptoPP::AES::DEFAULT_KEYLENGTH)
-		)
-	);
-    atmSession.key = atm_key;
-
-	//input loop   
-    while(1)
-    {
-        char buf[80];
-        char packet[1024];
-        int length;
-        int sendPacket = 0;
-        std::vector<std::string> bufArray;
-        std::vector<std::string> tokens;
-
-        // clean up last packet and buffer
-        buf[0] = '\0';
-        packet[0] = '\0';
-
-        // Print the prompt
-        printf("atm> ");
-        fgets(buf, 79, stdin);
-        buf[strlen(buf)-1] = '\0';  //trim off trailing newline
-
-        // Parse data
-        split((std::string) buf, ' ', bufArray);
-
-        if(std::string(buf).size() >= 204)
-        {
-            printf("Invalid input. Try again.\n");
-            continue;
-        }
-
-        //input parsing
-        if(bufArray.size() >= 1 && ((std::string) "") != bufArray[0])
-        {
-            std::string command = bufArray[0];
-
-                
-            // There exists a command, check the command
-            if(((std::string) "logout") == command || ((std::string) "exit") == command)
-            {   
-                if(atmSession.state > 0)
-                {
-                    atmSession.sendP(sock,packet,"logout");
-                }
-                break;
-            }
-            else if(((std::string) "login") == command && atmSession.state == 0) //if command is 'login'
-            {   
-                //this block prompts for 30 char username for login and puts it in the username var
-                // Continue as long as there is only one argument.
-                if(bufArray.size() == 2)
-                {
-                    //limit username to 30 chars
-                    std::string username = bufArray[1].substr(0,30);
-                    std::ifstream cardFile(("cards/" + username + ".card").c_str());
-                    if(cardFile)
-                    {
-                        atmSession.handshake(sock);
-                        if(atmSession.state != 2)
-                        {
-                            cout << "Unexpected error.\n";
-                            break;
-                        }
-                        sendPacket = 1; // Send packet because valid command
-
-                        //obtain card hash
-                        std::string cardHash((std::istreambuf_iterator<char>(cardFile)),std::istreambuf_iterator<char>());
-                        cardHash = cardHash.substr(0,128);
-                        cout << "Card: " << bufArray[1] << '\n';
-
-                        //this block prompts for PIN for login and puts it in the pin var
-                        std::string pin;
-                        pin = getPassword("PIN: ", true);
-                        //Pin is limited to 6 characters
-                        //pin = pin.substr(0,6);
-
-                        //Now we'll figure out the hash that we need to send
-                        std::string accountHash = makeHash(cardHash + pin + appSalt);
-                      
-                        //This block takes the info the user input and puts it into a packet.
-                        //The packet looks like: login,[username],[username.card account hash],[PIN]
-                        //buildPacket(packet,std::string(command + ',' + accountHash));
-                        if(!atmSession.sendP(sock, packet,std::string("login," + accountHash + "," + username)))
-                        {
-                            cout << "Unexpected error.\n";
-                            break;
-                        }
-                        atmSession.state = 3;
-
-                        if(!atmSession.listenP(sock, packet) || std::string(packet).substr(0,3) != "ack")
-                        {
-                            cout << "Unexpected error.\n";
-                            cout << "Expected ack but got " << std::string(packet).substr(0,3) << "\n";
-                            break;
-                        }
-                        atmSession.state = 4;
-                        //cout << "All logged in!\n";
-                        //strcpy(packet,(command + ',' + accountHash + '\0').c_str());
-                    }
-                    else
-                    {
-                        cout << "ATM Card not found.\n";
-                    }
-
-                }
-                else
-                {
-                    cout << "Usage: login [username]\n";
-                }
-            }
-            else if(((std::string) "balance") == command && atmSession.state == 4)
-            {
-                atmSession.sendP(sock,packet,"balance");
-                atmSession.listenP(sock,packet);
-                split(std::string(packet), ',',tokens);
-                if(tokens[0] == "denied")
-                {
-                    cout << "Transaction denied.\n";
-                } else {
-                    printf("Transaction complete!\nCurrent balance: %s\n", tokens[0].c_str());
-                }
-                atmSession.state = 5;
-            } //end if command is balance
-            else if(((std::string) "withdraw") == command && atmSession.state == 4)
-            {
-                if(bufArray.size() == 2 && isDouble(bufArray[1]))
-                {
-                    atmSession.sendP(sock,packet,"withdraw," + bufArray[1]);
-                    atmSession.listenP(sock,packet);
-                    split(std::string(packet), ',',tokens);
-                    if(tokens[0] == "denied")
-                    {
-                        cout << "Transaction denied.\n";
-                    } else {
-                        printf("Transaction complete!\nCurrent balance: %s\n", tokens[0].c_str());
-                    }
-                    atmSession.state = 5;
-                } //end if correct number of args, last arg is a double
-                else
-                {
-                    cout << "Usage: withdraw [amount]\n";
-                } //end else in correct format
-
-            } //end if command is withdraw
-			else if(((std::string) "transfer") == command && atmSession.state == 4)
-			{
-				if(bufArray.size() == 3)
-				{
-					//If this command is entered correctly, then is_double
-					//should be 0 and transfer_value should be both positive and
-					//not 0
-					long double is_double = string_to_Double(bufArray[1]);
-					long double transfer_value = string_to_Double(bufArray[2]);
-					if(is_double == 0 && transfer_value > 0)
-					{
-						atmSession.sendP(sock,packet,"transfer," + bufArray[1] + "," + bufArray[2]);
-						atmSession.listenP(sock,packet);
-						split(std::string(packet), ',',tokens);
-						if(tokens[0] == "denied")
-						{
-							cout << "Transaction denied.\n";
-						}
-						else if(tokens[0] == "same")
-						{
-							cout << "Cannot Transfer to yourself.\n";
-						} else {
-							printf("Transaction complete!\nCurrent balance: %s\n", tokens[0].c_str());
-						}
-						atmSession.state = 5;
-					} //end if correct number of args, last arg is a double, second arg is not a double
-				} //end if correct number of arguments
-				else
-				{
-					cout << "Usage: transfer [target_account] [amount]\n";
-				} //end else in correct format
-			} //end else if command is transfer
-
-            //TODO: other commands
-            
-            else
-            {
-                cout << "Command '" << command << "' not recognized.\n";
-            }
-
-            if(atmSession.state == 5)
-            {
-                break;
-            }
-
-        }
-        else
-        {
-            cout << "Usage: [command] [+argument]\n";
-        } 
-    }
-    
-    //cleanup
-    close(sock);
-    return 0;
-}
-
+//Attempt handshake with bank, checking for proper nonces along the way
 bool AtmSession::handshake(long int &csock)
 {
+    std::vector<std::string> tokens;
     state = 0;
 
     char packet[1024];
-    atmNonce = makeHash(randomString(128));
+    atm_nonce = makeHash(randomString(128));
 
-    if(atmNonce == "")
+    if(atm_nonce == "")
     {
-        atmNonce = "";
+        atm_nonce = "";
         return false;
     }
-    buildPacket(packet,"handshake," + atmNonce);
+    buildPacket(packet,"handshake," + atm_nonce);
     if(!this->key)
     {
         return false;
     }
     if(!encryptPacket(packet,this->key))
     {
-        atmNonce = "";
+        atm_nonce = "";
         return false;
     }
     if(!sendPacket(csock, packet))
     {
-        atmNonce = "";
+        atm_nonce = "";
         return false;
     }
+    
     state = 1;
-
     if(!listenPacket(csock, packet))
     {
-        atmNonce = "";
+        atm_nonce = "";
         return false;
     }
+    
     decryptPacket((char*)packet, this->key);
-
-    std::vector<std::string> tokens;
-
     split(std::string(packet),',', tokens);
-
-    if(tokens.size() < 3 || tokens[0] != "handshakeResponse" || tokens[1].size() != 128 
-        || tokens[2].size() != 128 || tokens[1] != atmNonce)
+    if(tokens.size() < 3 || tokens[0] != "handshakeResponse" ||
+	   tokens[1].size() != 128 || tokens[1] != atm_nonce || 
+	   tokens[2].size() != 128)
     {
-        atmNonce = "";
+        atm_nonce = "";
         return false;
     }
 
-    bankNonce = tokens[2];
+    bank_nonce = tokens[2];
     state = 2;
-
     return true;
 }
-//Takes a socket, a packet and a command and generates a nonce, then it
-//sends the packet with the nonce
+
+//Attaches nonces to a command, creates a packet, and sends it
 bool AtmSession::sendP(long int &csock, void* packet, std::string command)
 {
-    atmNonce = makeHash(randomString(128));
-    command = command + "," + atmNonce + "," + bankNonce;
+    atm_nonce = makeHash(randomString(128));
+    command = command + "," + atm_nonce + "," + bank_nonce;
     if(command.size() >= 460)
     {
         return false;
@@ -395,32 +141,283 @@ bool AtmSession::sendP(long int &csock, void* packet, std::string command)
     }
     return sendPacket(csock, packet);
 }
+
+//Listens for packet from bank and sets bank_nonce
 bool AtmSession::listenP(long int &csock, char* packet)
 {
-    if(!listenPacket(csock,packet) || !decryptPacket((char*)packet,this->key))
+    if(!listenPacket(csock,packet) ||
+	   !decryptPacket((char*)packet, this->key))
     {
         return false;
     }
 	try
     {
 		std::string response(packet);
-
 		if(response.substr(0, 4) == "kill")
 		{
 			return false;
 		}
-
-		if(response.substr(response.size()-257, 128) != atmNonce)
+		if(response.substr(response.size()-257, 128) != atm_nonce)
 		{
 			return false;
 		}
-
-		bankNonce = response.substr(response.size()-128, 128);
-
+		bank_nonce = response.substr(response.size()-128, 128);
 		return true;
-	} //end try
+	}
 	catch (std::exception e)
 	{
-			return false;
-	} //end catch
+		cout << "Exception: Failure while listening for packet." << endl;
+		return false;
+	}
+}
+
+
+int main(int argc, char* argv[])
+{
+    if(argc != 3)
+    {
+        cout << "Usage: atm proxy-port atm-number(1-50)" << endl;
+        return -1;
+    }
+
+    unsigned short proxy_port = atoi(argv[1]);
+    long int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if(!sock)
+    {
+        cout << "Failure to create socket" << endl;
+        return -1;
+    }
+    sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(proxy_port);
+    unsigned char* ipaddr = reinterpret_cast<unsigned char*>(&addr.sin_addr);
+    ipaddr[0] = 127;
+    ipaddr[1] = 0;
+    ipaddr[2] = 0;
+    ipaddr[3] = 1;
+    if(0 != connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)))
+    {
+        cout << "Failure to connect to proxy" << endl;
+        return -1;
+    }
+    
+    const std::string appSalt = "THISISASUPERSECUREAPPWIDESALT";
+    AtmSession atmSession = AtmSession();
+    atmSession.key = 0;
+    
+	//Construct key filename
+	std::string filename = "keys/" + std::string(argv[2]) + ".key";	
+	
+	//Attempt to read in key
+	std::string key;
+	std::ifstream key_file(filename.c_str());
+	if(key_file.is_open())
+	{
+		key_file >> key;
+	}
+	key_file.close();
+
+	byte atm_key[CryptoPP::AES::DEFAULT_KEYLENGTH];
+
+	//Generate ATM's private AES key    	
+	CryptoPP::StringSource(key, true,
+		new CryptoPP::HexDecoder(
+			new CryptoPP::ArraySink(atm_key,CryptoPP::AES::DEFAULT_KEYLENGTH)
+		)
+	);
+    atmSession.key = atm_key;
+
+    while(1)
+    {
+        char buf[80];
+        char packet[1024];
+        int length;
+        int sendPacket = 0;
+        std::vector<std::string> user_args;
+        std::vector<std::string> tokens;
+        buf[0] = '\0';
+        packet[0] = '\0';
+
+        cout << "atm> ";
+        fgets(buf, 79, stdin);
+        buf[strlen(buf)-1] = '\0';
+        split((std::string) buf, ' ', user_args);
+        if(std::string(buf).size() >= 204)
+        {
+            cout << "Invalid input. Try again." << endl;
+            continue;
+        }
+
+        //Parse user input and attempt to execute their request
+        if(user_args.size() >= 1 && user_args[0] != "")
+        {
+            std::string command = user_args[0];
+            if(command == "logout" || command == "exit")
+            {   
+                if(atmSession.state > 0)
+                {
+                    atmSession.sendP(sock,packet,"logout");
+                }
+                break;
+            }
+            //Attempt login request. Limit name to 30 characters.
+            else if(command == "login" && atmSession.state == 0)
+            {   
+                if(user_args.size() == 2)
+                {
+                    std::string username = user_args[1].substr(0, 30);
+                    std::ifstream cardFile(("cards/" + username + ".card").c_str());
+                    if(cardFile)
+                    {
+						//Attempt handshake.
+                        atmSession.handshake(sock);
+                        if(atmSession.state != 2)
+                        {
+                            cout << "Error occurred during handshake." << endl;
+                            break;
+                        }
+                        sendPacket = 1;
+
+                        //Hash the contents of the card file.
+                        std::string cardHash((std::istreambuf_iterator<char>(cardFile)),
+											  std::istreambuf_iterator<char>());
+                        cardHash = cardHash.substr(0,128);
+                        cout << "Card: " << user_args[1] << '\n';
+
+                        std::string pin = getPassword("PIN: ", true);
+
+                        //Create final hash to send to bank.
+                        std::string accountHash = makeHash(cardHash + pin + appSalt);
+                      
+                        //Attempt to send packet containing information to bank.
+                        if(!atmSession.sendP(sock, packet, std::string("login," 
+						   + accountHash + "," + username)))
+                        {
+                            cout << "Error occurred while sending packet." << endl;
+                            break;
+                        }
+                        atmSession.state = 3;
+
+						//Listen for "ack" packet from bank.
+                        if(!atmSession.listenP(sock, packet) ||
+						   std::string(packet).substr(0,3) != "ack")
+                        {
+                            cout << "Error occurred while listening for packet."
+								 << " Expected ack but got: " <<
+								 std::string(packet).substr(0,3) << endl;
+                            break;
+                        }
+                        atmSession.state = 4;
+                    }
+                    //Problem locating card.
+                    else
+                    {
+                        cout << "ATM Card not found." << endl;
+                    }
+                }
+				//User passes improper arguments to login function.
+                else
+                {
+                    cout << "Usage: login [username]" << endl;
+                }
+            }
+            //Attempt balance request.
+            else if(command == "balance" && atmSession.state == 4)
+            {
+                atmSession.sendP(sock, packet, "balance");
+                atmSession.listenP(sock, packet);
+                split(std::string(packet), ',',tokens);
+                if(tokens[0] == "denied")
+                {
+                    cout << "Transaction denied." << endl;
+                }
+                else
+                {
+                    cout << "Transaction complete!" << endl << 
+							"Current balance: " << tokens[0].c_str() << endl;
+                }
+                atmSession.state = 5;
+            }
+            //Attempt withdraw request.
+            else if(command == "withdraw" && atmSession.state == 4)
+            {
+                if(user_args.size() == 2 && isDouble(user_args[1]))
+                {
+                    atmSession.sendP(sock, packet, "withdraw," + user_args[1]);
+                    atmSession.listenP(sock, packet);
+                    split(std::string(packet), ',', tokens);
+                    if(tokens[0] == "denied")
+                    {
+                        cout << "Transaction denied." << endl;
+                    }
+                    else
+                    {
+                        cout << "Transaction complete!" << endl << 
+								"Current balance: " << tokens[0].c_str() << 
+								endl;
+                    }
+                    atmSession.state = 5;
+                }
+				//User passes improper arguments to withdraw function.
+                else
+                {
+                    cout << "Usage: withdraw [amount]\n";
+                }
+            }
+            //Attempt transfer request.
+			else if(command == "transfer" && atmSession.state == 4)
+			{
+				if(user_args.size() == 3)
+				{
+					//Ensure that user_args[1] is a name and user_args[2] > 0.
+					long double is_double = string_to_Double(user_args[1]);
+					long double transfer_amount = string_to_Double(user_args[2]);
+					if(is_double == 0 && transfer_amount > 0)
+					{
+						atmSession.sendP(sock, packet, "transfer," + user_args[1]
+										 + "," + user_args[2]);
+						atmSession.listenP(sock, packet);
+						split(std::string(packet), ',', tokens);
+						if(tokens[0] == "denied")
+						{
+							cout << "Transaction denied." << endl;
+						}
+						else if(tokens[0] == "same")
+						{
+							cout << "You can't transfer to yourself." << endl;
+						}
+						else
+						{
+							cout << "Transaction complete!" << endl <<
+									"Current balance: " << tokens[0].c_str() <<
+									endl;
+						}
+						atmSession.state = 5;
+					}
+				}
+				//User passes improper arguments to transfer function.
+				else
+				{
+					cout << "Usage: transfer [other_account] [amount]" << endl;
+				}
+			}
+			//User inputs improper command.
+            else
+            {
+                cout << "Command '" << command << "' not recognized." << endl;
+            }
+            if(atmSession.state == 5)
+            {
+                break;
+            }
+        }
+        //User inputs nothing.
+        else
+        {
+            cout << "Usage: [command] [+argument]" << endl;
+        } 
+    }
+    close(sock);
+    return 0;
 }

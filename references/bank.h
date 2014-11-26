@@ -24,7 +24,7 @@ private:
 struct BankSocketThread
 {
 	Bank* bank;
-	int *csock;
+	int *c_sock;
 };
 
 struct BankSession
