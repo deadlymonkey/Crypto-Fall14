@@ -202,7 +202,7 @@ int main(int argc, char* argv[])
         return -1;
     }
     
-    const std::string appSalt = "WHATISANAMAZINGSALTFORHASHING";
+    const std::string Salt = "WHATISANAMAZINGSALTFORHASHING";
     AtmSession atmSession = AtmSession();
     atmSession.key = 0;
     
@@ -288,7 +288,7 @@ int main(int argc, char* argv[])
                         std::string pin = getPassword("PIN: ", true);
 
                         //Create final hash to send to bank.
-                        std::string accountHash = makeHash(cardHash + pin + appSalt);
+                        std::string accountHash = makeHash(cardHash + pin + Salt);
                       
                         //Attempt to send packet containing information to bank.
                         if(!atmSession.sendP(sock, packet, std::string("login," 
