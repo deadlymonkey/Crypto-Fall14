@@ -13,7 +13,7 @@ public:
 	Account* getAccountByName(const std::string& username);
 	Account* connectToAccount();
 	Account* tryLoginHash(const std::string& hash);
-	std::string appSalt;
+	std::string Salt;
 	~Bank();
 	std::vector<byte*> keys;
 	std::vector<bool> keysInUse;
