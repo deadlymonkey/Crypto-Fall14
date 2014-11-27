@@ -64,7 +64,7 @@ int main(int argc, char* argv[])
     //Create the structs to help move data around
     BankSocketThread* bankSocketThread = new BankSocketThread();
     bankSocketThread->bank = bank;
-    bank->appSalt = "WHATISANAMAZINGSALTFORHASHING";
+    bank->Salt = "WHATISANAMAZINGSALTFORHASHING";
     
     pthread_t cthread;
     pthread_create(&cthread, NULL, console_thread, (void*)bankSocketThread);
@@ -321,19 +321,19 @@ void* console_thread(void* arg)
     Account* new_account = new Account();
 
     //Alice
-    new_account->createAccount(std::string("alice"), 1, std::string("123456"), bank->appSalt);
+    new_account->createAccount(std::string("alice"), 1, std::string("123456"), bank->Salt);
     new_account->Deposit(100);
     bank->addAccount(new_account);
 
     //Bob
     new_account = new Account();
-    new_account->createAccount(std::string("bob"), 2, std::string("234567"), bank->appSalt);
+    new_account->createAccount(std::string("bob"), 2, std::string("234567"), bank->Salt);
     new_account->Deposit(50);
     bank->addAccount(new_account);
 
     //Eve
     new_account = new Account();
-    new_account->createAccount(std::string("eve"), 3, std::string("345678"), bank->appSalt);
+    new_account->createAccount(std::string("eve"), 3, std::string("345678"), bank->Salt);
     new_account->Deposit(0);
     bank->addAccount(new_account);
 
