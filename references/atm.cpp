@@ -202,7 +202,7 @@ int main(int argc, char* argv[])
         return -1;
     }
     
-    const std::string appSalt = "THISISASUPERSECUREAPPWIDESALT";
+    const std::string appSalt = "WHATISANAMAZINGSALTFORHASHING";
     AtmSession atmSession = AtmSession();
     atmSession.key = 0;
     
