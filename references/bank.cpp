@@ -64,7 +64,7 @@ int main(int argc, char* argv[])
     //Create the structs to help move data around
     BankSocketThread* bankSocketThread = new BankSocketThread();
     bankSocketThread->bank = bank;
-    bank->appSalt = "THISISASUPERSECUREAPPWIDESALT";
+    bank->appSalt = "WHATISANAMAZINGSALTFORHASHING";
     
     pthread_t cthread;
     pthread_create(&cthread, NULL, console_thread, (void*)bankSocketThread);
