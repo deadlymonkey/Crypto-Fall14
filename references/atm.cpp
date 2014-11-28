@@ -43,9 +43,9 @@ int getNextChar() {
 std::string getPassword(const char *prompt, bool display_stars=true)
 {
     std::string password;
-    const char BACKSPACE = 127;
-    const char RETURN = 10;
     unsigned char next_char = 0;
+    const char RETURN = 10;
+    const char BACKSPACE = 127;
 
     cout << prompt;
     while((next_char = getNextChar()) != RETURN)
@@ -140,7 +140,7 @@ bool AtmSession::sendThePacket(long int &csock, void* packet, std::string comman
     return sendPacket(csock, packet);
 }
 
-//Listens for packet from bank, checks for atm_nonce, and sets bank_nonce.
+//Listens for packet from bank, checks against atm_nonce, and sets bank_nonce.
 bool AtmSession::listenForPacket(long int &csock, char* packet)
 {
     if(!listenPacket(csock,packet) ||
@@ -203,10 +203,10 @@ int main(int argc, char* argv[])
     const std::string Salt = "WHATISANAMAZINGSALTFORHASHING";
     AtmSession atmSession = AtmSession();
     
-	//Construct key filename
+	//Construct key filename.
 	std::string filename = "keys/" + std::string(argv[2]) + ".key";	
 	
-	//Attempt to read in key
+	//Attempt to read in key.
 	std::string key;
 	std::ifstream key_file(filename.c_str());
 	if(key_file.is_open())
@@ -216,7 +216,7 @@ int main(int argc, char* argv[])
 	key_file.close();
 
 	byte atm_key[CryptoPP::AES::DEFAULT_KEYLENGTH];
-	//Generate ATM's private AES key    	
+	//Generate ATM's private AES key. 	
 	CryptoPP::StringSource(key, true, new CryptoPP::HexDecoder(
 			new CryptoPP::ArraySink(atm_key,CryptoPP::AES::DEFAULT_KEYLENGTH)));
     atmSession.key = atm_key;
@@ -242,7 +242,7 @@ int main(int argc, char* argv[])
             continue;
         }
 
-        //Parse user input and attempt to execute their request
+        //Parse user input and attempt to execute their request.
         if(user_args.size() >= 1 && user_args[0] != "")
         {
             std::string command = user_args[0];
@@ -276,7 +276,7 @@ int main(int argc, char* argv[])
                         std::string cardHash((std::istreambuf_iterator<char>(cardFile)),
 											  std::istreambuf_iterator<char>());
                         cardHash = cardHash.substr(0,128);
-                        cout << "Card: " << user_args[1] << '\n';
+                        cout << "User: " << user_args[1] << '\n';
 
                         std::string pin = getPassword("PIN: ", true);
 
@@ -393,7 +393,8 @@ int main(int argc, char* argv[])
 					}
 					else if (transfer_amount <= 0)
 					{
-						cout << "Invalid transfer amount." << endl; 
+						cout << "Invalid transfer amount." << endl;
+						break; 
 					}
 				}
 				//User passes improper arguments to transfer function.

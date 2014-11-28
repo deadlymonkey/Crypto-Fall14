@@ -43,7 +43,5 @@ private:
 	int transferAttemptsRemaining;
 	int failsRemaining;
 	bool islocked;
-
-	void failCount();
 };
 #endif

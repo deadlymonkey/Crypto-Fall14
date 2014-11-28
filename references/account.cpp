@@ -214,7 +214,6 @@ bool Account::tryLogin(const std::string& pin, const std::string& bankSalt)
 	{
 		return true;
 	} else {
-		failCount();
 		return false;
 	}
 }
@@ -229,17 +228,6 @@ bool Account::tryHash(const std::string& attemptedHash)
 	{
 		return true;
 	} else {
-		failCount();
 		return false;
 	}	
-}
-
-void Account::failCount()
-{
-	if(failsRemaining > 1)
-	{
-		this->failsRemaining -= 1;
-	} else {
-		this->islocked = true;
-	}
 }
