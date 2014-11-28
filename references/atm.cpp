@@ -24,7 +24,7 @@ using std::cout;
 using std::cin;
 using std::endl;
 
-//Gets next character, used by getPassword
+//Gets next character, used by getPassword.
 int getNextChar() {
     int next_char;
     struct termios t_old, t_new;
@@ -39,8 +39,8 @@ int getNextChar() {
     return next_char;
 }
 
-//Gets PIN from user while only displaying asterisks
-std::string getPassword(const char *prompt, bool show_asterisk=true)
+//Gets PIN from user while only displaying asterisks to hide from nearby people.
+std::string getPassword(const char *prompt, bool display_stars=true)
 {
     std::string password;
     const char BACKSPACE = 127;
@@ -54,7 +54,7 @@ std::string getPassword(const char *prompt, bool show_asterisk=true)
         {
             if(password.length() != 0)
             {
-                if(show_asterisk)
+                if(display_stars)
                 {
                     cout <<"\b \b";
 				}
@@ -63,7 +63,7 @@ std::string getPassword(const char *prompt, bool show_asterisk=true)
         }
         else{
             password += next_char;
-            if(show_asterisk)
+            if(display_stars)
             {
                 cout <<'*';
 			}
@@ -73,13 +73,12 @@ std::string getPassword(const char *prompt, bool show_asterisk=true)
     return password;
 }
 
-//Attempt handshake with bank, checking for proper nonces along the way
+//Attempts a handshake with bank, checking for proper nonces along the way.
 bool AtmSession::handshake(long int &csock)
 {
+    char packet[1024];
     std::vector<std::string> tokens;
     state = 0;
-
-    char packet[1024];
     atm_nonce = makeHash(randomString(128));
 
     if(atm_nonce == "")
@@ -92,7 +91,7 @@ bool AtmSession::handshake(long int &csock)
     {
         return false;
     }
-    if(!encryptPacket(packet,this->key))
+    if(!encryptPacket(packet, this->key))
     {
         atm_nonce = "";
         return false;
@@ -102,7 +101,6 @@ bool AtmSession::handshake(long int &csock)
         atm_nonce = "";
         return false;
     }
-    
     state = 1;
     if(!listenPacket(csock, packet))
     {
@@ -111,7 +109,7 @@ bool AtmSession::handshake(long int &csock)
     }
     
     decryptPacket((char*)packet, this->key);
-    split(std::string(packet),',', tokens);
+    split(std::string(packet), ',', tokens);
     if(tokens.size() < 3 || tokens[0] != "handshakeResponse" ||
 	   tokens[1].size() != 128 || tokens[1] != atm_nonce || 
 	   tokens[2].size() != 128)
@@ -125,8 +123,8 @@ bool AtmSession::handshake(long int &csock)
     return true;
 }
 
-//Attaches nonces to a command, creates a packet, and sends it
-bool AtmSession::sendP(long int &csock, void* packet, std::string command)
+//Attaches nonces to a command, creates a packet, and sends it.
+bool AtmSession::sendThePacket(long int &csock, void* packet, std::string command)
 {
     atm_nonce = makeHash(randomString(128));
     command = command + "," + atm_nonce + "," + bank_nonce;
@@ -142,8 +140,8 @@ bool AtmSession::sendP(long int &csock, void* packet, std::string command)
     return sendPacket(csock, packet);
 }
 
-//Listens for packet from bank and sets bank_nonce
-bool AtmSession::listenP(long int &csock, char* packet)
+//Listens for packet from bank, checks for atm_nonce, and sets bank_nonce.
+bool AtmSession::listenForPacket(long int &csock, char* packet)
 {
     if(!listenPacket(csock,packet) ||
 	   !decryptPacket((char*)packet, this->key))
@@ -196,7 +194,7 @@ int main(int argc, char* argv[])
     ipaddr[1] = 0;
     ipaddr[2] = 0;
     ipaddr[3] = 1;
-    if(0 != connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)))
+    if(connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0)
     {
         cout << "Failure to connect to proxy" << endl;
         return -1;
@@ -204,7 +202,6 @@ int main(int argc, char* argv[])
     
     const std::string Salt = "WHATISANAMAZINGSALTFORHASHING";
     AtmSession atmSession = AtmSession();
-    atmSession.key = 0;
     
 	//Construct key filename
 	std::string filename = "keys/" + std::string(argv[2]) + ".key";	
@@ -219,13 +216,9 @@ int main(int argc, char* argv[])
 	key_file.close();
 
 	byte atm_key[CryptoPP::AES::DEFAULT_KEYLENGTH];
-
 	//Generate ATM's private AES key    	
-	CryptoPP::StringSource(key, true,
-		new CryptoPP::HexDecoder(
-			new CryptoPP::ArraySink(atm_key,CryptoPP::AES::DEFAULT_KEYLENGTH)
-		)
-	);
+	CryptoPP::StringSource(key, true, new CryptoPP::HexDecoder(
+			new CryptoPP::ArraySink(atm_key,CryptoPP::AES::DEFAULT_KEYLENGTH)));
     atmSession.key = atm_key;
 
     while(1)
@@ -257,7 +250,7 @@ int main(int argc, char* argv[])
             {   
                 if(atmSession.state > 0)
                 {
-                    atmSession.sendP(sock,packet,"logout");
+                    atmSession.sendThePacket(sock, packet, "logout");
                 }
                 break;
             }
@@ -291,7 +284,7 @@ int main(int argc, char* argv[])
                         std::string accountHash = makeHash(cardHash + pin + Salt);
                       
                         //Attempt to send packet containing information to bank.
-                        if(!atmSession.sendP(sock, packet, std::string("login," 
+                        if(!atmSession.sendThePacket(sock, packet, std::string("login," 
 						   + accountHash + "," + username)))
                         {
                             cout << "Error occurred while sending packet." << endl;
@@ -300,13 +293,16 @@ int main(int argc, char* argv[])
                         atmSession.state = 3;
 
 						//Listen for "ack" packet from bank.
-                        if(!atmSession.listenP(sock, packet) ||
-						   std::string(packet).substr(0,3) != "ack")
+                        if(!atmSession.listenForPacket(sock, packet) ||
+						   std::string(packet).substr(0, 3) != "ack")
                         {
-                            cout << "Error occurred while listening for packet."
-								 << " Expected ack but got: " <<
-								 std::string(packet).substr(0,3) << endl;
-                            break;
+                            cout << "Error occurred during login: " << endl;
+                            if (std::string(packet).substr(0, 3) == "err")
+                            {
+								cout << "Please make sure your PIN is correct " <<
+										"and try again." << endl;
+								break;
+							}
                         }
                         atmSession.state = 4;
                     }
@@ -325,17 +321,17 @@ int main(int argc, char* argv[])
             //Attempt balance request.
             else if(command == "balance" && atmSession.state == 4)
             {
-                atmSession.sendP(sock, packet, "balance");
-                atmSession.listenP(sock, packet);
-                split(std::string(packet), ',',tokens);
+                atmSession.sendThePacket(sock, packet, "balance");
+                atmSession.listenForPacket(sock, packet);
+                split(std::string(packet), ',', tokens);
                 if(tokens[0] == "denied")
                 {
                     cout << "Transaction denied." << endl;
                 }
                 else
                 {
-                    cout << "Transaction complete!" << endl << 
-							"Current balance: " << tokens[0].c_str() << endl;
+                    cout << "Transaction complete!" << endl << "Current balance: "
+						 << tokens[0].c_str() << endl;
                 }
                 atmSession.state = 5;
             }
@@ -344,8 +340,8 @@ int main(int argc, char* argv[])
             {
                 if(user_args.size() == 2 && isDouble(user_args[1]))
                 {
-                    atmSession.sendP(sock, packet, "withdraw," + user_args[1]);
-                    atmSession.listenP(sock, packet);
+                    atmSession.sendThePacket(sock, packet, "withdraw," + user_args[1]);
+                    atmSession.listenForPacket(sock, packet);
                     split(std::string(packet), ',', tokens);
                     if(tokens[0] == "denied")
                     {
@@ -375,9 +371,9 @@ int main(int argc, char* argv[])
 					long double transfer_amount = string_to_Double(user_args[2]);
 					if(is_double == 0 && transfer_amount > 0)
 					{
-						atmSession.sendP(sock, packet, "transfer," + user_args[1]
-										 + "," + user_args[2]);
-						atmSession.listenP(sock, packet);
+						atmSession.sendThePacket(sock, packet, "transfer," + 
+												 user_args[1]+ "," + user_args[2]);
+						atmSession.listenForPacket(sock, packet);
 						split(std::string(packet), ',', tokens);
 						if(tokens[0] == "denied")
 						{
@@ -395,6 +391,10 @@ int main(int argc, char* argv[])
 						}
 						atmSession.state = 5;
 					}
+					else if (transfer_amount <= 0)
+					{
+						cout << "Invalid transfer amount." << endl; 
+					}
 				}
 				//User passes improper arguments to transfer function.
 				else
@@ -405,7 +405,7 @@ int main(int argc, char* argv[])
 			//User inputs improper command.
             else
             {
-                cout << "Command '" << command << "' not recognized." << endl;
+                cout << "Command \"" << command << "\" not recognized." << endl;
             }
             if(atmSession.state == 5)
             {

@@ -45,7 +45,6 @@ struct BankSession
 	std::string bankNonce;
 	std::string atmNonce;
 	byte* key;
-
 };
 
 #endif

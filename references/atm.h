@@ -5,19 +5,16 @@
 
 struct AtmSession
 {
-	//Construct
 	AtmSession() : state(0) {}
-
-	//Functions
-	bool handshake(long int &csock);
-	bool sendP(long int &csock, void* packet, std::string command);
-	bool listenP(long int &csock, char* packet);
-
-	//Variables
+	
 	unsigned int state;
 	std::string bank_nonce;
 	std::string atm_nonce;
 	byte* key;
+
+	bool handshake(long int &csock);
+	bool sendThePacket(long int &csock, void* packet, std::string command);
+	bool listenForPacket(long int &csock, char* packet);
 };
 
 #endif

@@ -101,16 +101,16 @@ void* client_thread(void* arg)
     //input loop
     int length;
     char packet[1024];
-    bool critialError = false;
+    bool criticalerror = false;
     std::vector<std::string> token;
     while(1)
     {
-        critialError = false;
+        criticalerror = false;
         token.clear();
         
         if(!listenPacket(c_sock, packet))
         {
-            printf("[bank] fail to read packet\n");
+            printf("[bank] fail to read packet. Has client disconnected?\n");
             break;
         }
         if(!bankSession->key)
@@ -132,7 +132,8 @@ void* client_thread(void* arg)
                     bankSession->key = bank->keys[i];
                     bank->keysInUse[i] = true;
                     break;
-                }            }
+                }
+			}
             if(!bankSession->key)
             {
                 printf("[error] Key not found.\n");
@@ -174,20 +175,20 @@ void* client_thread(void* arg)
                     if(bankSession->bankNonce.size() == 0)
                     {
                         printf("Unexpected error\n");
-                        critialError = true;
+                        criticalerror = true;
                         break;
                     }
                     buildPacket(packet, "handshakeResponse," + bankSession->atmNonce + "," + bankSession->bankNonce);
                     if(!encryptPacket((char*)packet,bankSession->key))
                     {
                         printf("Unexpected error\n");
-                        critialError = true;
+                        criticalerror = true;
                         break;
                     }
                     if(!sendPacket(c_sock, packet))
                     {
                         printf("Unexpected error\n");
-                        critialError = true;
+                        criticalerror = true;
                         break;
                     }
                     bankSession->state = 2;
@@ -198,27 +199,32 @@ void* client_thread(void* arg)
                 if(!bankSession->validateNonce(std::string(packet)))
                 {
                     printf("Unexpected error\n");
-                    critialError = true;
+                    criticalerror = true;
                     break;
                 }
                 if(token.size() == 5 && token[0] == "login" && token[1].size() == 128)
                 {
                     //Now we'll try to find the account
-                    //bankSession->account = bank->tryLoginHash(token[1]);
                     bankSession->account = bank->getAccountByName(token[2]);
-                    if(!bankSession->account || !bankSession->account->tryHash(token[1]))
+                    if(!bankSession->account || bankSession->account != bankSession->bank->tryLoginHash(token[1]))
                     {
                         //Failed login
-                        //TODO Blacklist hash
                         bankSession->error = true;
-                        //printf("[notice] Failed login!\n");
+                        if(!bankSession->sendP(c_sock,packet, "err"))
+						{
+							printf("Unexpected error!\n");
+							criticalerror = true;
+							break;
+						}
+                        printf("[notice] Failed login!\n");
+						break;
                     }
                     bankSession->account->inUse = true;
                     bankSession->state = 5;
                     if(!bankSession->sendP(c_sock,packet, "ack"))
                     {
                         printf("Unexpected error!\n");
-                        critialError = true;
+                        criticalerror = true;
                         break;
                     }
                 }
@@ -287,7 +293,7 @@ void* client_thread(void* arg)
                 break;
         }
         
-        if(critialError)
+        if(criticalerror)
         {
             bankSession->endSession();
             break;
